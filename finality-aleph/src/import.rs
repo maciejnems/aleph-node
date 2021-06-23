@@ -123,21 +123,23 @@ where
             Err(e) => return Err(e),
         };
 
-        if let Some(justification) =
-            justifications.and_then(|just| just.into_justification(ALEPH_ENGINE_ID))
-        {
-            match self.send_justification(hash, number, (ALEPH_ENGINE_ID, justification)) {
-                Err(SendJustificationError::Send(_)) => {
-                    imported_aux.needs_justification = true;
-                }
-                Err(SendJustificationError::Consensus(_)) => {
-                    imported_aux.bad_justification = true;
-                    imported_aux.needs_justification = true
-                }
-                Ok(_) => (),
-            };
-        } else {
-            imported_aux.needs_justification = true;
+        if (number % 10u32.into()) == 9u32.into() {
+            if let Some(justification) =
+                justifications.and_then(|just| just.into_justification(ALEPH_ENGINE_ID))
+            {
+                match self.send_justification(hash, number, (ALEPH_ENGINE_ID, justification)) {
+                    Err(SendJustificationError::Send(_)) => {
+                        imported_aux.needs_justification = true;
+                    }
+                    Err(SendJustificationError::Consensus(_)) => {
+                        imported_aux.bad_justification = true;
+                        imported_aux.needs_justification = true
+                    }
+                    Ok(_) => (),
+                };
+            } else {
+                imported_aux.needs_justification = true;
+            }
         }
 
         Ok(ImportResult::Imported(imported_aux))

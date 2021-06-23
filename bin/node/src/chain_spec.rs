@@ -156,13 +156,22 @@ fn testnet_genesis(
             key: root_key,
         },
         pallet_aleph: AlephConfig {
-            authorities: aleph_authorities.to_vec(),
+            authorities: aleph_authorities
+            // .split_last().unwrap().1
+            .to_vec(),
         },
         pallet_session: SessionConfig {
             keys: endowed_accounts
+                // .split_last()
+                // .unwrap()
+                // .1
                 .iter()
-                .zip(aura_authorities.iter())
-                .zip(aleph_authorities.iter())
+                .zip(aura_authorities
+                    // .split_last().unwrap().1
+                    .iter())
+                .zip(aleph_authorities
+                    // .split_last().unwrap().1
+                    .iter())
                 .map(|((account_id, aura_id), aleph_id)| {
                     (
                         account_id.clone(),
@@ -176,8 +185,8 @@ fn testnet_genesis(
                 .collect(),
         },
         pallet_staking: StakingConfig {
-            validator_count: endowed_accounts.len() as u32 * 2,
-            minimum_validator_count: endowed_accounts.len() as u32,
+            validator_count: endowed_accounts.len() as u32 - 1,
+            minimum_validator_count: endowed_accounts.len() as u32 - 1,
             stakers: endowed_accounts
                 .iter()
                 .map(|x| (x.clone(), x.clone(), 1 << 50, StakerStatus::Validator))

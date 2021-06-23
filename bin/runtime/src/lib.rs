@@ -260,7 +260,7 @@ impl_opaque_keys! {
 }
 
 parameter_types! {
-    pub const Period: u32 = 50;
+    pub const Period: u32 = 10;
     pub const Offset: u32 = 0;
 }
 
