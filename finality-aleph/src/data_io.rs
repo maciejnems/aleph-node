@@ -10,6 +10,7 @@ use futures::{
 };
 use lru::LruCache;
 use parking_lot::Mutex;
+use sc_client_api::{backend::Backend, BlockchainEvents};
 use sp_consensus::SelectChain;
 use sp_runtime::{
     generic::BlockId,
@@ -24,10 +25,11 @@ use std::{
     time::{self, Duration},
 };
 
+use sp_blockchain::{HeaderBackend, HeaderMetadata};
+
 const REFRESH_INTERVAL: u64 = 100;
 use futures_timer::Delay;
 use log::{debug, trace};
-use sc_client_api::backend::Backend;
 
 type MessageId = u64;
 const AVAILABLE_BLOCKS_CACHE_SIZE: usize = 1000;
@@ -97,7 +99,7 @@ impl Default for DataStoreConfig {
 pub(crate) struct DataStore<B, C, BE, RB, Message>
 where
     B: BlockT,
-    C: crate::ClientForAleph<B, BE> + Send + Sync + 'static,
+    C: HeaderBackend<B> + BlockchainEvents<B> + Send + Sync + 'static,
     BE: Backend<B> + 'static,
     RB: network::RequestBlocks<B> + 'static,
     Message: AlephNetworkMessage<B> + std::fmt::Debug,
@@ -118,7 +120,7 @@ where
 impl<B, C, BE, RB, Message> DataStore<B, C, BE, RB, Message>
 where
     B: BlockT,
-    C: crate::ClientForAleph<B, BE> + Send + Sync + 'static,
+    C: HeaderBackend<B> + BlockchainEvents<B> + Send + Sync + 'static,
     BE: Backend<B> + 'static,
     RB: network::RequestBlocks<B> + 'static,
     Message: AlephNetworkMessage<B> + std::fmt::Debug,
@@ -321,15 +323,14 @@ pub(crate) struct DataIO<B: BlockT> {
 }
 
 // Reduce block header to the level given by num, by traversing down via parents.
-pub(crate) fn reduce_header_to_num<B, BE, C>(
+pub(crate) fn reduce_header_to_num<B, C>(
     client: Arc<C>,
     header: B::Header,
     num: NumberFor<B>,
 ) -> B::Header
 where
     B: BlockT,
-    C: crate::ClientForAleph<B, BE> + Send + Sync + 'static,
-    BE: Backend<B> + 'static,
+    C: HeaderMetadata<B> + sc_client_api::HeaderBackend<B> + Send + Sync + 'static,
 {
     let mut curr_header = header;
     while curr_header.number() > &num {
@@ -341,7 +342,7 @@ where
     curr_header
 }
 
-pub(crate) async fn refresh_best_chain<B, BE, SC, C>(
+pub(crate) async fn refresh_best_chain<B, SC, C>(
     select_chain: SC,
     client: Arc<C>,
     proposed_block: Arc<Mutex<AlephDataFor<B>>>,
@@ -349,8 +350,7 @@ pub(crate) async fn refresh_best_chain<B, BE, SC, C>(
     mut exit: oneshot::Receiver<()>,
 ) where
     B: BlockT,
-    C: crate::ClientForAleph<B, BE> + Send + Sync + 'static,
-    BE: Backend<B> + 'static,
+    C: HeaderMetadata<B> + sc_client_api::HeaderBackend<B> + Send + Sync + 'static,
     SC: SelectChain<B> + 'static,
 {
     // We would like proposed_block to contain the highest ancestor of the `best_block` (this is what

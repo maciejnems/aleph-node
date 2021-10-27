@@ -7,13 +7,14 @@ use codec::Decode;
 use futures::channel::mpsc::{TrySendError, UnboundedSender};
 use log::debug;
 use sc_client_api::backend::Backend;
+use sc_client_api::{Finalizer, HeaderBackend, LockImportRun};
 use sc_consensus::{
     BlockCheckParams, BlockImport, BlockImportParams, ImportResult, JustificationImport,
 };
-use sp_api::TransactionFor;
+use sp_api::{HeaderT, ProvideRuntimeApi, TransactionFor};
 use sp_consensus::Error as ConsensusError;
 use sp_runtime::{
-    traits::{Block as BlockT, Header, NumberFor},
+    traits::{Block as BlockT, NumberFor},
     Justification,
 };
 use std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Instant};
@@ -22,7 +23,6 @@ pub struct AlephBlockImport<Block, Be, I>
 where
     Block: BlockT,
     Be: Backend<Block>,
-    I: crate::ClientForAleph<Block, Be>,
 {
     inner: Arc<I>,
     justification_tx: UnboundedSender<JustificationNotification<Block>>,
@@ -43,7 +43,6 @@ impl<Block, Be, I> AlephBlockImport<Block, Be, I>
 where
     Block: BlockT,
     Be: Backend<Block>,
-    I: crate::ClientForAleph<Block, Be>,
 {
     pub fn new(
         inner: Arc<I>,
@@ -89,7 +88,6 @@ impl<Block, Be, I> Clone for AlephBlockImport<Block, Be, I>
 where
     Block: BlockT,
     Be: Backend<Block>,
-    I: crate::ClientForAleph<Block, Be>,
 {
     fn clone(&self) -> Self {
         AlephBlockImport {
@@ -106,12 +104,12 @@ impl<Block, Be, I> BlockImport<Block> for AlephBlockImport<Block, Be, I>
 where
     Block: BlockT,
     Be: Backend<Block>,
-    I: crate::ClientForAleph<Block, Be> + Send,
+    I: BlockImport<Block> + ProvideRuntimeApi<Block> + Send + Sync,
     for<'a> &'a I:
         BlockImport<Block, Error = ConsensusError, Transaction = TransactionFor<I, Block>>,
     TransactionFor<I, Block>: Send + 'static,
 {
-    type Error = <I as BlockImport<Block>>::Error;
+    type Error = ConsensusError;
     type Transaction = TransactionFor<I, Block>;
 
     async fn check_block(
@@ -169,7 +167,12 @@ impl<Block, Be, I> JustificationImport<Block> for AlephBlockImport<Block, Be, I>
 where
     Block: BlockT,
     Be: Backend<Block>,
-    I: crate::ClientForAleph<Block, Be>,
+    I: LockImportRun<Block, Be>
+        + Finalizer<Block, Be>
+        + HeaderBackend<Block>
+        + Send
+        + Sync
+        + 'static,
 {
     type Error = ConsensusError;
 

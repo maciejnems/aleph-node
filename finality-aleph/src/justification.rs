@@ -13,6 +13,7 @@ use futures_timer::Delay;
 use log::{debug, error, warn};
 use parking_lot::Mutex;
 use sc_client_api::backend::Backend;
+use sc_client_api::{Finalizer, HeaderBackend, LockImportRun};
 use sp_api::{BlockId, BlockT, NumberFor};
 use sp_runtime::traits::Header;
 use std::{
@@ -68,7 +69,7 @@ pub(crate) struct JustificationHandler<B, RB, C, BE>
 where
     B: BlockT,
     RB: network::RequestBlocks<B> + 'static,
-    C: crate::ClientForAleph<B, BE> + Send + Sync + 'static,
+    C: LockImportRun<B, BE> + Finalizer<B, BE> + HeaderBackend<B> + Send + Sync + 'static,
     BE: Backend<B> + 'static,
 {
     session_authorities: Arc<Mutex<SessionMap>>,
@@ -85,7 +86,7 @@ impl<B, RB, C, BE> JustificationHandler<B, RB, C, BE>
 where
     B: BlockT,
     RB: network::RequestBlocks<B> + 'static,
-    C: crate::ClientForAleph<B, BE> + Send + Sync + 'static,
+    C: LockImportRun<B, BE> + Finalizer<B, BE> + HeaderBackend<B> + Send + Sync + 'static,
     BE: Backend<B> + 'static,
 {
     pub(crate) fn new(
